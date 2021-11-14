@@ -1,3 +1,6 @@
+//! Remove comments
+//! Get Private Data to Client App
+
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -11,15 +14,15 @@
 #include <curl/curl.h>
 #include "isabela_api.c"
 
-//*! TODO: Menu do Proxy Server para Cliente com envio de informaçao do ISABELA
-// Clear Screen
-#define clear() printf("\033[H\033[J")
 // Server running on Port 8000
-#define SERVER_Port 9001
+#define SERVER_Port 9000
 #define BUF_SIZE 1024
 
-void process_client(int fd);
-const char *get_student_information(char *user_id);
+void process_client(int client_fd);
+void found_or_not(int client_fd);
+const char *get_student_information(int client_fd, int option_flag, char *user_id);
+void send_data(int client_fd, char user_id[]);
+void send_private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent);
 // Error Message
 void error(char *msg);
 
@@ -59,27 +62,51 @@ int main()
 void process_client(int client_fd){
     int nread = 0;
     char buffer[BUF_SIZE];
-    while(1){
-        // Reads buffer given by client with User's ID
-        nread = read(client_fd, buffer, BUF_SIZE-1);
-        buffer[nread] = '\0';
-        fflush(stdout);
-        // Gives User's ID to function 
-        const char *user_id = get_student_information(buffer);
-        // Checks if User's ID is valid
-        // If not valid returns to client an information string
-        if(strcmp(user_id, "User not found") == 0){
-            write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
-        }
-        // If valid returns to client and information string
-        else{
-            write(client_fd, strcat(buffer, " found"), strlen(strcat(buffer, " found")));
-        }
-    }
+    found_or_not(client_fd);
+    // // Reads buffer given by client with User's ID
+    // nread = read(client_fd, buffer, BUF_SIZE-1);
+    // buffer[nread] = '\0';
+    // fflush(stdout);
+    // // Gives User's ID to function 
+    // const char *user_id = get_student_information(buffer);
+    // // Checks if User's ID is valid
+    // // If not valid returns to client an information string
+    // if(strcmp(user_id, "User not found") == 0){
+    //     write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
+    // }
+    // // If valid returns to client and information string
+    // else{
+    //     write(client_fd, strcat(buffer, " found"), strlen(strcat(buffer, " found")));
+        
+    // }
     close(client_fd);
 }
 
-const char *get_student_information(char *user_id){
+void found_or_not(int client_fd){
+    int nread = 0;
+    char buffer[BUF_SIZE];
+    // Reads buffer given by client with User's ID
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    // Gives User's ID to function 
+    // Option Flag = 0 (No Data Retrieved)
+    const char *user_id = get_student_information(client_fd, 0, buffer);
+    // Checks if User's ID is valid
+    // If not valid returns to client an information string
+    if(strcmp(user_id, "User not found") == 0){
+        write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
+        found_or_not(client_fd);
+    }
+    // If valid returns to client and information string
+    else{
+        write(client_fd, strcat(buffer, " was found"), strlen(strcat(buffer, " was found")));
+        // Receives Option from Client (Either Private or Group Data)
+        send_data(client_fd, user_id);
+    }    
+}
+
+const char *get_student_information(int client_fd, int option_flag, char *user_id){
     //JSON obect
 	struct json_object *jobj_array, *jobj_obj;
 	struct json_object *jobj_object_id, *jobj_object_type, *jobj_object_activity, *jobj_object_location, *jobj_object_latlong, *jobj_object_callsduration, 
@@ -124,11 +151,35 @@ const char *get_student_information(char *user_id){
         const char *sms_sent = json_object_get_string(jobj_object_smssent);
         // Temporary solution (Sends data if User's )
         if(strcmp(id, user_id) == 0){
-            return id;
+            if(option_flag == 0){
+                return id;
+            }
+            if(option_flag == 1){
+                send_private_data(client_fd, user_id, id, type, activity, location, calls_duration, calls_made, calls_missed, calls_received, department, sms_received, sms_sent);
+            }   
         }
 	}
     // Temporary Solution
     return "User not found";
+}
+
+void send_data(int client_fd, char user_id[]){
+    int nread = 0;
+    char buffer[BUF_SIZE];
+    // Reads User's Choice (Private or Group Data)
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    if(strcmp(buffer, "private_data") == 0){
+        // Flag = 1 (Private Data)
+        get_student_information(client_fd, 1, user_id);
+    }
+    send_data(client_fd, user_id);
+}
+
+void send_private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent){
+    write(client_fd, strcat(type, location), strlen(strcat(type, location)));
+    send_data(client_fd, user_id);
 }
 
 void error(char *msg)
