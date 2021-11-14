@@ -1,6 +1,8 @@
-//! Remove comments
-//! Get Private Data to Client App
-
+/* 
+    Student: Joao Antunes (2018295351)
+    Server Application
+    Connection Client/Server with TCP Sockets
+*/
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -14,15 +16,18 @@
 #include <curl/curl.h>
 #include "isabela_api.c"
 
+// Clear Screen
+#define clear() printf("\033[H\033[J")
 // Server running on Port 8000
-#define SERVER_Port 9000
+#define SERVER_PORT 9001
 #define BUF_SIZE 1024
 
 void process_client(int client_fd);
-void found_or_not(int client_fd);
+void check_user_id(int client_fd);
 const char *get_student_information(int client_fd, int option_flag, char *user_id);
-void send_data(int client_fd, char user_id[]);
-void send_private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent);
+void data(int client_fd, char user_id[]);
+void private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent);
+void send_data_routine(int client_fd, char *data_cell);
 // Error Message
 void error(char *msg);
 
@@ -32,10 +37,14 @@ int main()
     struct sockaddr_in addr, client_addr;
     int client_addr_size;
 
+    // Clear initial screen and tell the server is running
+    clear();
+    printf("Server on Port %d\nServer running...\n", SERVER_PORT);
+
     bzero((void *) &addr, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(SERVER_Port);
+    addr.sin_port = htons(SERVER_PORT);
 
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         error("Error Socket");
@@ -62,27 +71,15 @@ int main()
 void process_client(int client_fd){
     int nread = 0;
     char buffer[BUF_SIZE];
-    found_or_not(client_fd);
-    // // Reads buffer given by client with User's ID
-    // nread = read(client_fd, buffer, BUF_SIZE-1);
-    // buffer[nread] = '\0';
-    // fflush(stdout);
-    // // Gives User's ID to function 
-    // const char *user_id = get_student_information(buffer);
-    // // Checks if User's ID is valid
-    // // If not valid returns to client an information string
-    // if(strcmp(user_id, "User not found") == 0){
-    //     write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
-    // }
-    // // If valid returns to client and information string
-    // else{
-    //     write(client_fd, strcat(buffer, " found"), strlen(strcat(buffer, " found")));
-        
-    // }
+    // Calls function check_user_id()
+    check_user_id(client_fd);
     close(client_fd);
 }
 
-void found_or_not(int client_fd){
+void check_user_id(int client_fd){
+/* 
+    Function that check User's ID
+*/
     int nread = 0;
     char buffer[BUF_SIZE];
     // Reads buffer given by client with User's ID
@@ -96,13 +93,13 @@ void found_or_not(int client_fd){
     // If not valid returns to client an information string
     if(strcmp(user_id, "User not found") == 0){
         write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
-        found_or_not(client_fd);
+        check_user_id(client_fd);
     }
     // If valid returns to client and information string
     else{
         write(client_fd, strcat(buffer, " was found"), strlen(strcat(buffer, " was found")));
         // Receives Option from Client (Either Private or Group Data)
-        send_data(client_fd, user_id);
+        data(client_fd, user_id);
     }    
 }
 
@@ -155,7 +152,7 @@ const char *get_student_information(int client_fd, int option_flag, char *user_i
                 return id;
             }
             if(option_flag == 1){
-                send_private_data(client_fd, user_id, id, type, activity, location, calls_duration, calls_made, calls_missed, calls_received, department, sms_received, sms_sent);
+                private_data(client_fd, user_id, id, type, activity, location, calls_duration, calls_made, calls_missed, calls_received, department, sms_received, sms_sent);
             }   
         }
 	}
@@ -163,7 +160,10 @@ const char *get_student_information(int client_fd, int option_flag, char *user_i
     return "User not found";
 }
 
-void send_data(int client_fd, char user_id[]){
+void data(int client_fd, char user_id[]){
+/* 
+    Function that receives the chosen option from the client
+*/
     int nread = 0;
     char buffer[BUF_SIZE];
     // Reads User's Choice (Private or Group Data)
@@ -174,12 +174,43 @@ void send_data(int client_fd, char user_id[]){
         // Flag = 1 (Private Data)
         get_student_information(client_fd, 1, user_id);
     }
-    send_data(client_fd, user_id);
+    if(strcmp(buffer, "group_data") == 0){
+        // Flag = 2 (Group Data)
+        get_student_information(client_fd, 2, user_id);
+    }
+    data(client_fd, user_id);
 }
 
-void send_private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent){
-    write(client_fd, strcat(type, location), strlen(strcat(type, location)));
-    send_data(client_fd, user_id);
+void private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent){
+/* 
+    Function that handles the information received by the API
+    Sending it to the send_data_routine() function in order to be sent
+*/
+    send_data_routine(client_fd, id);
+    send_data_routine(client_fd, type);
+    send_data_routine(client_fd, activity);
+    send_data_routine(client_fd, location);
+    send_data_routine(client_fd, calls_duration);
+    send_data_routine(client_fd, calls_made);
+    send_data_routine(client_fd, calls_missed);
+    send_data_routine(client_fd, calls_received);
+    send_data_routine(client_fd, department);
+    send_data_routine(client_fd, sms_received);
+    send_data_routine(client_fd, sms_sent);
+}
+
+void send_data_routine(int client_fd, char *data_cell){
+/* 
+    Function that handles the sending of data to the client application
+    Arguments taken (client_fd, data_cell)
+    data_cell -> Data that is going to be sent to the client
+*/
+    int nread = 0;
+    char buffer[BUF_SIZE];
+    write(client_fd, data_cell, strlen(data_cell));
+    while(nread == 0){
+        nread = read(client_fd, buffer, BUF_SIZE-1);
+    }
 }
 
 void error(char *msg)

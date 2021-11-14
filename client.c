@@ -1,9 +1,8 @@
 /* 
     Student: Joao Antunes (2018295351)
     Client Application
-    USER: SRC_USER_1
+    Connection Client/Server with TCP Sockets
 */
-// Sockets TCP
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -19,13 +18,14 @@
 // Server IP
 #define SERVER_IP "127.0.0.1"
 // Server PORT
-#define SERVER_PORT 9000
+#define SERVER_PORT 9001
 //? User ID. Should this app be assigned a USER ID to simulate phone application?
 #define USER_ID "SRC_USER_1"
 // Function Declaration
 void error(char *msg);
 void send_user_id(int fd);
 void main_menu(int fd);
+void display_data(char *data[11][BUF_SIZE]);
 int option_menu();
 void return_to_option_menu(int fd);
 
@@ -48,35 +48,9 @@ int main(int argc, char *argv[]){
         error("socket");
     if( connect(fd,(struct sockaddr *)&addr,sizeof (addr)) < 0)
         error("Connect");
-        
-        send_user_id(fd);
-    // Giving User's ID
-    // while(strstr(buffer, "not found") != NULL){
-    //     clear();
-    //     printf("%s\n", buffer);
-    //     printf("Welcome to ISABELA\nUser ID: ");
-    //     scanf("%s", user_id);
-    //     // Sends give user_id to server
-    //     write(fd, user_id, strlen(user_id));
-    //     // Reads Server Request
-    //     nread = read(fd, buffer, BUF_SIZE-1);
-    //     buffer[nread] = '\0';
-    //     fflush(stdout); 
-    //     clear();
-    //     printf("%s", buffer);
-        // If User is not found cycle continues
-        // if(strstr(buffer, "not found") != NULL){
-        //     clear();
-        //     printf("%s\n", buffer);
-        // }
-        // If user is found breaks cycle
-        // else{
-        //     printf("---- %s ----\n", buffer);
-        //     break;    
-        // }
-    //}
-    // Calling main_menu() function
-    //main_menu(fd);
+    // Clear initial screen
+    clear();
+    send_user_id(fd);
     close(fd);
     exit(0);
 }
@@ -84,6 +58,7 @@ int main(int argc, char *argv[]){
 void send_user_id(int fd){
     char buffer[BUF_SIZE], user_id[50];
     int nread;
+    
     printf("Welcome to ISABELA\nUser ID: ");
     scanf("%s", user_id);
     // Sends give user_id to server
@@ -106,31 +81,60 @@ void send_user_id(int fd){
 }
 
 void main_menu(int fd){
-    int option = 0, nread;
-    char buffer[BUF_SIZE];
+    int option = 0, nread, i = 0;
+    char buffer[BUF_SIZE], *data[11][BUF_SIZE];
+    // Calls function option_menu() in order for the user to choose option
     option = option_menu();
     if(option == 1){
         clear();
-        printf("Private Data:");
+        printf("Private Data:\n");
         write(fd, "private_data", strlen("private_data"));
-        nread = read(fd, buffer, BUF_SIZE-1);
-        buffer[nread] = '\0';
-        fflush(stdout);
-        printf("%s", buffer);
+        // While Cycle to get 11 cells of Private Data
+        while(i < 11){
+            nread = read(fd, buffer, BUF_SIZE-1);
+            buffer[nread] = '\0';
+            fflush(stdout);
+            strcpy(data[i], buffer);
+            // Sends and Acknowledgment so it can send single char array instead of whole array
+            write(fd, "ACK", strlen("ACK"));
+            i++;
+        }
+        // Calls display_data() function in order to print out the data received
+        display_data(data);
+        // Function to ask for the return to the option menu (or exit)
         return_to_option_menu(fd);
     }
     if(option == 2){
         clear();
         printf("Group Data:");
+        // Function to ask for the return to the menu (or exit)
         return_to_option_menu(fd);
     }
     if(option == 3){
+        // Exit application
         clear();
         close(fd);
         printf("Application Ended");
         exit(0);
     }
     option_menu();
+}
+
+void display_data(char *data[11][BUF_SIZE]){
+/* 
+    Function to display data received
+*/
+    printf("===========\nID - %s\n", data[0]);
+    printf("Type - %s\n", data[1]);
+    printf("Activity - %s\n", data[2]);
+    printf("Location - %s\n", data[3]);
+    printf("Calls Duration - %s\n", data[4]);
+    printf("Calls Made - %s\n", data[5]);
+    printf("Calls Missed - %s\n", data[6]);
+    printf("Calls Received - %s\n", data[7]);
+    printf("Department - %s\n", data[8]);
+    printf("SMS Received - %s\n", data[9]);
+    printf("SMS Sent - %s\n===========", data[10]);
 }
 
 int option_menu(){
@@ -151,9 +155,11 @@ void return_to_option_menu(int fd){
         clear();
     }
     if(option == 1){
+        // Go back to Menu
         main_menu(fd);
     }
     if(option == 2){
+        // Exit Application
         printf("Application Ended");
         close(fd);
         exit(0);
