@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "in.h": "c",
+        "curl.h": "c",
+        "string.h": "c"
+    }
+}
