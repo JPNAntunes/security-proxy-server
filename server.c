@@ -24,9 +24,10 @@
 
 void process_client(int client_fd);
 void check_user_id(int client_fd);
-const char *get_student_information(int client_fd, int option_flag, char *user_id);
-void data(int client_fd, char user_id[]);
-void private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent);
+const char *get_student_information(int client_fd, int option_flag, const char *user_id);
+void data(int client_fd, const char *user_id);
+void private_data(int client_fd, char data[11][BUF_SIZE]);
+//!void private_data(int client_fd, char *id, char *type, char *activity, char *location, char *calls_duration, char *calls_made, char *calls_missed, char *calls_received, char *department, char *sms_received, char *sms_sent);
 void send_data_routine(int client_fd, char *data_cell);
 // Error Message
 void error(char *msg);
@@ -103,7 +104,7 @@ void check_user_id(int client_fd){
     }    
 }
 
-const char *get_student_information(int client_fd, int option_flag, char *user_id){
+const char *get_student_information(int client_fd, int option_flag, const char *user_id){
     //JSON obect
 	struct json_object *jobj_array, *jobj_obj;
 	struct json_object *jobj_object_id, *jobj_object_type, *jobj_object_activity, *jobj_object_location, *jobj_object_latlong, *jobj_object_callsduration, 
@@ -135,24 +136,27 @@ const char *get_student_information(int client_fd, int option_flag, char *user_i
 		jobj_object_smsreceived = json_object_object_get(jobj_obj, "sms_received");
 		jobj_object_smssent = json_object_object_get(jobj_obj, "sms_sent");
         // Assigning values to variables
+        char data[11][BUF_SIZE];
+        strcpy(data[0], json_object_get_string(jobj_object_id));
+        strcpy(data[1], json_object_get_string(jobj_object_type));
+        strcpy(data[2], json_object_get_string(jobj_object_activity));
+        strcpy(data[3], json_object_get_string(jobj_object_location));
+        strcpy(data[4], json_object_get_string(jobj_object_callsduration));
+        strcpy(data[5], json_object_get_string(jobj_object_callsmade));
+        strcpy(data[6], json_object_get_string(jobj_object_callsmissed));
+        strcpy(data[7], json_object_get_string(jobj_object_callsreceived));
+        strcpy(data[8], json_object_get_string(jobj_object_department));
+        strcpy(data[9], json_object_get_string(jobj_object_smsreceived));
+        strcpy(data[10], json_object_get_string(jobj_object_smssent));
+        // Assigning values to variables
         const char *id = json_object_get_string(jobj_object_id);
-        const char *type = json_object_get_string(jobj_object_type);
-        const char *activity = json_object_get_string(jobj_object_activity);
-        const char *location = json_object_get_string(jobj_object_location);
-        const char *calls_duration = json_object_get_string(jobj_object_callsduration);
-        const char *calls_made = json_object_get_string(jobj_object_callsmade);
-        const char *calls_missed = json_object_get_string(jobj_object_callsmissed);
-        const char *calls_received = json_object_get_string(jobj_object_callsreceived);
-        const char *department = json_object_get_string(jobj_object_department);
-        const char *sms_received = json_object_get_string(jobj_object_smsreceived);
-        const char *sms_sent = json_object_get_string(jobj_object_smssent);
         // Temporary solution (Sends data if User's )
         if(strcmp(id, user_id) == 0){
             if(option_flag == 0){
                 return id;
             }
             if(option_flag == 1){
-                private_data(client_fd, user_id, id, type, activity, location, calls_duration, calls_made, calls_missed, calls_received, department, sms_received, sms_sent);
+                private_data(client_fd, data);
             }   
         }
 	}
@@ -160,7 +164,7 @@ const char *get_student_information(int client_fd, int option_flag, char *user_i
     return "User not found";
 }
 
-void data(int client_fd, char user_id[]){
+void data(int client_fd, const char *user_id){
 /* 
     Function that receives the chosen option from the client
 */
@@ -181,36 +185,21 @@ void data(int client_fd, char user_id[]){
     data(client_fd, user_id);
 }
 
-void private_data(int client_fd, char user_id[], const char *id, const char *type, const char *activity, const char *location, const char *calls_duration, const char *calls_made, const char *calls_missed, const char *calls_received, const char *department, const char *sms_received, const char *sms_sent){
+void private_data(int client_fd, char data[11][BUF_SIZE])
+{
 /* 
-    Function that handles the information received by the API
-    Sending it to the send_data_routine() function in order to be sent
+    Function sends private data to the client app
 */
-    send_data_routine(client_fd, id);
-    send_data_routine(client_fd, type);
-    send_data_routine(client_fd, activity);
-    send_data_routine(client_fd, location);
-    send_data_routine(client_fd, calls_duration);
-    send_data_routine(client_fd, calls_made);
-    send_data_routine(client_fd, calls_missed);
-    send_data_routine(client_fd, calls_received);
-    send_data_routine(client_fd, department);
-    send_data_routine(client_fd, sms_received);
-    send_data_routine(client_fd, sms_sent);
-}
-
-void send_data_routine(int client_fd, char *data_cell){
-/* 
-    Function that handles the sending of data to the client application
-    Arguments taken (client_fd, data_cell)
-    data_cell -> Data that is going to be sent to the client
-*/
-    int nread = 0;
-    char buffer[BUF_SIZE];
-    write(client_fd, data_cell, strlen(data_cell));
-    while(nread == 0){
-        nread = read(client_fd, buffer, BUF_SIZE-1);
-    }
+    int i = 0;
+    while(i < 11){
+        int nread = 0;
+        char buffer[BUF_SIZE];
+        write(client_fd, data[i], strlen(data[i]));
+        while(nread == 0){
+            nread = read(client_fd, buffer, BUF_SIZE-1);
+        } 
+        i++;
+    }   
 }
 
 void error(char *msg)

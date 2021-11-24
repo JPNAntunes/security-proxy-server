@@ -25,7 +25,7 @@
 void error(char *msg);
 void send_user_id(int fd);
 void main_menu(int fd);
-void display_data(char *data[11][BUF_SIZE]);
+void display_data(char data[11][BUF_SIZE]);
 int option_menu();
 void return_to_option_menu(int fd);
 
@@ -82,7 +82,7 @@ void send_user_id(int fd){
 
 void main_menu(int fd){
     int option = 0, nread, i = 0;
-    char buffer[BUF_SIZE], *data[11][BUF_SIZE];
+    char buffer[BUF_SIZE], data[11][BUF_SIZE];
     // Calls function option_menu() in order for the user to choose option
     option = option_menu();
     if(option == 1){
@@ -120,7 +120,7 @@ void main_menu(int fd){
     option_menu();
 }
 
-void display_data(char *data[11][BUF_SIZE]){
+void display_data(char data[11][BUF_SIZE]){
 /* 
     Function to display data received
 */
