@@ -139,27 +139,29 @@ void display_data(char data[11][BUF_SIZE], int option_flag){
 /* 
     Function to display data received
 */
-if(option_flag == 1){
-    printf("===========\nID - %s\n", data[0]);
-    printf("Type - %s\n", data[1]);
-    printf("Activity - %s\n", data[2]);
-    printf("Location - %s\n", data[3]);
-    printf("Calls Duration - %s\n", data[4]);
-    printf("Calls Made - %s\n", data[5]);
-    printf("Calls Missed - %s\n", data[6]);
-    printf("Calls Received - %s\n", data[7]);
-    printf("Department - %s\n", data[8]);
-    printf("SMS Received - %s\n", data[9]);
-    printf("SMS Sent - %s\n===========", data[10]);
-}
-if(option_flag == 2){
-    printf("===========\nCalls Duration - %s\n", data[0]);
-    printf("Calls Made - %s\n", data[1]);
-    printf("Calls Missed - %s\n", data[2]);
-    printf("Calls Received - %s\n", data[3]);
-    printf("SMS Received - %s\n", data[4]);
-    printf("SMS Sent - %s\n===========", data[5]);
-}
+    // Printing Private Data Menu
+    if(option_flag == 1){
+        printf("===========\nID - %s\n", data[0]);
+        printf("Type - %s\n", data[1]);
+        printf("Activity - %s\n", data[2]);
+        printf("Location - %s\n", data[3]);
+        printf("Calls Duration - %s\n", data[4]);
+        printf("Calls Made - %s\n", data[5]);
+        printf("Calls Missed - %s\n", data[6]);
+        printf("Calls Received - %s\n", data[7]);
+        printf("Department - %s\n", data[8]);
+        printf("SMS Received - %s\n", data[9]);
+        printf("SMS Sent - %s\n===========", data[10]);
+    }
+    // Printing Group Data Menu
+    if(option_flag == 2){
+        printf("===========\nCalls Duration - %s\n", data[0]);
+        printf("Calls Made - %s\n", data[1]);
+        printf("Calls Missed - %s\n", data[2]);
+        printf("Calls Received - %s\n", data[3]);
+        printf("SMS Received - %s\n", data[4]);
+        printf("SMS Sent - %s\n===========", data[5]);
+    }
     
 }
 

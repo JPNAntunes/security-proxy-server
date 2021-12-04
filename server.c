@@ -69,14 +69,6 @@ int main()
     return 0;  
 }
 
-// void process_client(int client_fd){
-//     int nread = 0;
-//     char buffer[BUF_SIZE];
-//     // Calls function login()
-//     login(client_fd);
-//     close(client_fd);
-// }
-
 void login(int client_fd){
 /* 
     Function that check User's ID
