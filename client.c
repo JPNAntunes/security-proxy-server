@@ -25,7 +25,7 @@
 void error(char *msg);
 void send_user_id(int fd);
 void main_menu(int fd);
-void display_data(char data[11][BUF_SIZE]);
+void display_data(char data[11][BUF_SIZE], int option_flag);
 int option_menu();
 void return_to_option_menu(int fd);
 
@@ -88,7 +88,8 @@ void main_menu(int fd){
     if(option == 1){
         clear();
         printf("Private Data:\n");
-        write(fd, "private_data", strlen("private_data"));
+        // Number 1 for private data
+        write(fd, "1", strlen("1"));
         // While Cycle to get 11 cells of Private Data
         while(i < 11){
             nread = read(fd, buffer, BUF_SIZE-1);
@@ -100,14 +101,28 @@ void main_menu(int fd){
             i++;
         }
         // Calls display_data() function in order to print out the data received
-        display_data(data);
+        display_data(data, 1);
         // Function to ask for the return to the option menu (or exit)
         return_to_option_menu(fd);
     }
     if(option == 2){
         clear();
-        printf("Group Data:");
-        // Function to ask for the return to the menu (or exit)
+        printf("Group Data:\n");
+        // Number two for group data
+        write(fd, "2", strlen("2"));
+        // While Cycle to get 11 cells of Private Data
+        while(i < 6){
+            nread = read(fd, buffer, BUF_SIZE-1);
+            buffer[nread] = '\0';
+            fflush(stdout);
+            strcpy(data[i], buffer);
+            // Sends and Acknowledgment so it can send single char array instead of whole array
+            write(fd, "ACK", strlen("ACK"));
+            i++;
+        }
+        //Calls display_data() function in order to print out the data received
+        display_data(data, 2);
+        //Function to ask for the return to the menu (or exit)
         return_to_option_menu(fd);
     }
     if(option == 3){
@@ -120,10 +135,11 @@ void main_menu(int fd){
     option_menu();
 }
 
-void display_data(char data[11][BUF_SIZE]){
+void display_data(char data[11][BUF_SIZE], int option_flag){
 /* 
     Function to display data received
 */
+if(option_flag == 1){
     printf("===========\nID - %s\n", data[0]);
     printf("Type - %s\n", data[1]);
     printf("Activity - %s\n", data[2]);
@@ -135,6 +151,16 @@ void display_data(char data[11][BUF_SIZE]){
     printf("Department - %s\n", data[8]);
     printf("SMS Received - %s\n", data[9]);
     printf("SMS Sent - %s\n===========", data[10]);
+}
+if(option_flag == 2){
+    printf("===========\nCalls Duration - %s\n", data[0]);
+    printf("Calls Made - %s\n", data[1]);
+    printf("Calls Missed - %s\n", data[2]);
+    printf("Calls Received - %s\n", data[3]);
+    printf("SMS Received - %s\n", data[4]);
+    printf("SMS Sent - %s\n===========", data[5]);
+}
+    
 }
 
 int option_menu(){
