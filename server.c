@@ -3,6 +3,8 @@
     Server Application
     Connection Client/Server with TCP Sockets
 */
+// Credit to Ricardo Garcia for Hashing Library (Bcrypt)
+// Repository link: https://github.com/rg3/libbcrypt
 // To make file: gcc server.c -o server -lcurl -ljson-c crypt_blowfish/*.o    
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -24,6 +26,7 @@
 #define SERVER_PORT 9000
 #define BUF_SIZE 1024
 
+// Function declaration
 void process_client(int client_fd);
 void check_id(int client_fd);
 const char *get_student_information(int client_fd, int option_flag, const char *user_id);
@@ -98,7 +101,6 @@ void check_id(int client_fd){
         write(client_fd, strcat(buffer, " was found"), strlen(strcat(buffer, " was found")));
         // Receives Option from Client (Either Private or Group Data)
         check_user(client_fd, user_id);
-        //data(client_fd, user_id);
     }    
 }
 
@@ -273,14 +275,16 @@ void check_user(int client_fd, const char *user_id)
         // Checks if User ID given by User exists in database
         if(strcmp(info[0], user_id) == 0)
         {   
-            // Removinf \n char from the string
-            //! if((info[1][strlen(info[1]) - 1]) == "\n"){
+            // Removes \n char from the string
             info[1][strlen(info[1]) - 1] = 0;
-            //! }
             // Checks if Password exists in database for that user
             // If it doesn't sends user to registration procedure
             if(strlen(info[1]) < 1)
             {
+                // If info[1] is too small is an indication either of an error
+                // or that just the user is on that database
+                // so it sends that user to registratio
+                // This shouldn't happen although
                 registration(client_fd, user_id);
             }
             // If it does, sends user to login procedure
@@ -296,6 +300,7 @@ void check_user(int client_fd, const char *user_id)
         }
     }
     fclose(fp);
+    // Just for safety
     registration(client_fd, user_id);
 }
 
@@ -309,11 +314,14 @@ void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
-    if(strcmp(info[1], buffer) == 0)
+    // Checks if password given for login is the same as the one hashed on the database
+    // If it's successful will go to the data routine giving access to the menu
+    if( bcrypt_checkpw(buffer, info[1]) == 0 )
     {
         write(client_fd, "success", strlen("success"));
         data(client_fd, user_id);
     }
+    // If it's unsuccessful, will return the user to the initial menu
     else
     {
         write(client_fd, "failed", strlen("failed"));
@@ -325,23 +333,28 @@ void registration(int client_fd, const char *user_id)
 {
     int nread;
     char buffer[BUF_SIZE];
-
+    // Opens file
     FILE *fp;
     fp = fopen("database.txt", "a");
     // Sends to user that registration is needed
     write(client_fd, "register", strlen("register"));
+    // Writes the user_id to the database
     strcat(user_id, " ");
     fputs(user_id, fp);
     fclose(fp);
-
+    // Reads password given by user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
+    // Generates a bcrypt hashed password
+    // With salt and 12 rounds
     generate_hash(buffer);
     write(client_fd, "success", strlen("success"));
     check_id(client_fd);
 }
 
+// Bcrypt Hashing - Safe way of storing passwords
+// Use of salt in order to not be predictable
 void generate_hash(const char *password)
 {
     FILE *fp;

@@ -76,8 +76,9 @@ void send_user_id(int fd){
     if(strstr(buffer, "was found") != NULL){
         clear();
         printf("--- %s ---\n", buffer);
+        // If user id was found in the API
+        // Authentication Menu will be presented
         authentication_menu(fd, user_id);
-        //main_menu(fd);
     }
     send_user_id(fd);
 }
@@ -86,14 +87,15 @@ void authentication_menu(int fd, char *user_id)
 {
     char buffer[BUF_SIZE];
     int nread;
+    // ACK for syncing porpuses
     write(fd, "ack", strlen("ack"));
     nread = read(fd, buffer, BUF_SIZE-1);
+    // Reads server answer
     buffer[nread] = '\0';
     fflush(stdout); 
-    printf("buffer = %s", buffer);
+    // If reads register, goes to registration procedure
     if(strcmp(buffer, "register") == 0)
     {
-        //! REGISTRATION PROCEDURE
         char password[BUF_SIZE];
         printf("Registration\nNew Password: ");
         scanf("%s", password);
@@ -101,6 +103,7 @@ void authentication_menu(int fd, char *user_id)
         nread = read(fd, buffer, BUF_SIZE-1);
         buffer[nread] = '\0';
         fflush(stdout); 
+        // Receives server answer
         if(strcmp(buffer, "success") == 0){
             clear();
             printf("Registration Successful\n");
@@ -111,9 +114,9 @@ void authentication_menu(int fd, char *user_id)
             error("Registration error! Terminating");
         }
     }
+    // If reads login, goes to login procedure
     if(strcmp(buffer, "login") == 0)
     {
-        //! ASK FOR PASSWORD THEN COMPARE ON SERVER AND IF CORRECT SEND TO NORMAL PROCEDURE
         char password[BUF_SIZE];
         printf("Login In\nPassword: ");
         scanf("%s", password);
@@ -122,7 +125,8 @@ void authentication_menu(int fd, char *user_id)
         // Receives answer from server (either success or failed)
         nread = read(fd, buffer, BUF_SIZE-1);
         buffer[nread] = '\0';
-        fflush(stdout); 
+        fflush(stdout);
+        // Reads server answer 
         if(strcmp(buffer, "success") == 0)
         {
             clear();
