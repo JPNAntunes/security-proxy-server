@@ -3,6 +3,7 @@
         "in.h": "c",
         "curl.h": "c",
         "string.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "socket.h": "c"
     }
 }

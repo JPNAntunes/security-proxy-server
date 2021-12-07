@@ -3,6 +3,7 @@
     Client Application
     Connection Client/Server with TCP Sockets
 */
+// To make file: gcc client.c -o client
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -18,12 +19,12 @@
 // Server IP
 #define SERVER_IP "127.0.0.1"
 // Server PORT
-#define SERVER_PORT 9001
-//? User ID. Should this app be assigned a USER ID to simulate phone application?
+#define SERVER_PORT 9000
 #define USER_ID "SRC_USER_1"
 // Function Declaration
 void error(char *msg);
 void send_user_id(int fd);
+void authentication_menu(int fd, char *user_id);
 void main_menu(int fd);
 void display_data(char data[11][BUF_SIZE], int option_flag);
 int option_menu();
@@ -75,9 +76,66 @@ void send_user_id(int fd){
     if(strstr(buffer, "was found") != NULL){
         clear();
         printf("--- %s ---\n", buffer);
-        main_menu(fd);
+        authentication_menu(fd, user_id);
+        //main_menu(fd);
     }
     send_user_id(fd);
+}
+
+void authentication_menu(int fd, char *user_id)
+{
+    char buffer[BUF_SIZE];
+    int nread;
+    write(fd, "ack", strlen("ack"));
+    nread = read(fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout); 
+    printf("buffer = %s", buffer);
+    if(strcmp(buffer, "register") == 0)
+    {
+        //! REGISTRATION PROCEDURE
+        char password[BUF_SIZE];
+        printf("Registration\nNew Password: ");
+        scanf("%s", password);
+        write(fd, password, strlen(password));
+        nread = read(fd, buffer, BUF_SIZE-1);
+        buffer[nread] = '\0';
+        fflush(stdout); 
+        if(strcmp(buffer, "success") == 0){
+            clear();
+            printf("Registration Successful\n");
+            send_user_id(fd);
+        }
+        else
+        {
+            error("Registration error! Terminating");
+        }
+    }
+    if(strcmp(buffer, "login") == 0)
+    {
+        //! ASK FOR PASSWORD THEN COMPARE ON SERVER AND IF CORRECT SEND TO NORMAL PROCEDURE
+        char password[BUF_SIZE];
+        printf("Login In\nPassword: ");
+        scanf("%s", password);
+        // Sends password to server
+        write(fd, password, strlen(password));
+        // Receives answer from server (either success or failed)
+        nread = read(fd, buffer, BUF_SIZE-1);
+        buffer[nread] = '\0';
+        fflush(stdout); 
+        if(strcmp(buffer, "success") == 0)
+        {
+            clear();
+            printf("Authentication Succesful\n");
+            main_menu(fd); 
+        }
+        if(strcmp(buffer, "failed") == 0)
+        {
+            clear();
+            printf("Authentication Failed\n");
+            send_user_id(fd);
+        }
+    }
 }
 
 void main_menu(int fd){

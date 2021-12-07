@@ -3,6 +3,7 @@
     Server Application
     Connection Client/Server with TCP Sockets
 */
+// To make file: gcc server.c -o server -lcurl -ljson-c crypt_blowfish/*.o    
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -15,21 +16,25 @@
 #include <json-c/json.h>
 #include <curl/curl.h>
 #include "isabela_api.c"
+#include "bcrypt.c"
 
 // Clear Screen
 #define clear() printf("\033[H\033[J")
 // Server running on Port 8000
-#define SERVER_PORT 9001
+#define SERVER_PORT 9000
 #define BUF_SIZE 1024
 
 void process_client(int client_fd);
-void login(int client_fd);
+void check_id(int client_fd);
 const char *get_student_information(int client_fd, int option_flag, const char *user_id);
 void data(int client_fd, const char *user_id);
 void private_data(int client_fd, char data[11][BUF_SIZE], const char *user_id);
 void group_data(int client_fd, char data[6][BUF_SIZE], const char *user_id);
-char* get_average(int data_parcel, int n);
 void send_data_routine(int client_fd, char *data_cell);
+void check_user(int client_fd, const char *user_id);
+void login(int client_fd, const char* user_id, char info[2][BUF_SIZE]);
+void registration(int client_fd, const char *user_id);
+void generate_hash(const char *password);
 // Error Message
 void error(char *msg);
 
@@ -60,7 +65,7 @@ int main()
         if (client > 0) {
             if (fork() == 0) {
                 close(fd);
-                login(client);
+                check_id(client);
                 exit(0);
             }
         close(client);
@@ -69,7 +74,7 @@ int main()
     return 0;  
 }
 
-void login(int client_fd){
+void check_id(int client_fd){
 /* 
     Function that check User's ID
 */
@@ -86,13 +91,14 @@ void login(int client_fd){
     // If not valid returns to client an information string
     if(strcmp(user_id, "User not found") == 0){
         write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
-        login(client_fd);
+        check_id(client_fd);
     }
     // If valid returns to client and information string
     else{
         write(client_fd, strcat(buffer, " was found"), strlen(strcat(buffer, " was found")));
         // Receives Option from Client (Either Private or Group Data)
-        data(client_fd, user_id);
+        check_user(client_fd, user_id);
+        //data(client_fd, user_id);
     }    
 }
 
@@ -237,13 +243,116 @@ void group_data(int client_fd, char all_data[6][BUF_SIZE], const char *user_id)
     data(client_fd, user_id);
 }
 
-char* get_average(int data_parcel, int n)
+void check_user(int client_fd, const char *user_id)
 {
-    float avg;
-    char *average;
-    avg = data_parcel / n;
-    gcvt(avg, 2, average);
-    return average;
+    char line[100];
+    char * token, info[2][BUF_SIZE];
+    int nread;
+    char buffer[BUF_SIZE];
+    // Waits for an acknowledge from the user (syncing porpuses)
+    while(strcmp(buffer, "ack") != 0)
+    {
+        nread = read(client_fd, buffer, BUF_SIZE-1);
+        buffer[nread] = '\0';
+        fflush(stdout);
+    }
+    FILE *fp;
+    fp = fopen("database.txt", "r");
+    // Reads each line of file
+    while(fgets(line, sizeof(line), fp)) {
+        // Separates each line between username and password
+        //                              info[0]      info[1]
+        token = strtok(line, " ");
+        int i = 0;
+        while(token != NULL){
+            strcpy(info[i], token); 
+            token = strtok(NULL, " ");
+            i++;
+            
+        }    
+        // Checks if User ID given by User exists in database
+        if(strcmp(info[0], user_id) == 0)
+        {   
+            // Removinf \n char from the string
+            //! if((info[1][strlen(info[1]) - 1]) == "\n"){
+            info[1][strlen(info[1]) - 1] = 0;
+            //! }
+            // Checks if Password exists in database for that user
+            // If it doesn't sends user to registration procedure
+            if(strlen(info[1]) < 1)
+            {
+                registration(client_fd, user_id);
+            }
+            // If it does, sends user to login procedure
+            else{
+                login(client_fd, user_id, info);
+            }
+            
+        }
+        // In case of empty database
+        else
+        {
+            registration(client_fd, user_id);
+        }
+    }
+    fclose(fp);
+    registration(client_fd, user_id);
+}
+
+void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
+{
+    int nread;
+    char buffer[BUF_SIZE];
+    // Sends login procedure flag to user
+    write(client_fd, "login", strlen("login"));
+    // Reads password sent by user
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    if(strcmp(info[1], buffer) == 0)
+    {
+        write(client_fd, "success", strlen("success"));
+        data(client_fd, user_id);
+    }
+    else
+    {
+        write(client_fd, "failed", strlen("failed"));
+        check_id(client_fd);
+    }
+}
+
+void registration(int client_fd, const char *user_id)
+{
+    int nread;
+    char buffer[BUF_SIZE];
+
+    FILE *fp;
+    fp = fopen("database.txt", "a");
+    // Sends to user that registration is needed
+    write(client_fd, "register", strlen("register"));
+    strcat(user_id, " ");
+    fputs(user_id, fp);
+    fclose(fp);
+
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    generate_hash(buffer);
+    write(client_fd, "success", strlen("success"));
+    check_id(client_fd);
+}
+
+void generate_hash(const char *password)
+{
+    FILE *fp;
+    fp = fopen("database.txt", "a");
+    char salt[BCRYPT_HASHSIZE];
+	char hash[BCRYPT_HASHSIZE];
+    bcrypt_gensalt(12, salt);
+    bcrypt_hashpw(password, salt, hash);
+    strcat(hash, "\n");
+    fputs(hash, fp);
+    fclose(fp);
 }
 
 void error(char *msg)
