@@ -4,6 +4,12 @@
         "curl.h": "c",
         "string.h": "c",
         "types.h": "c",
-        "socket.h": "c"
+        "socket.h": "c",
+        "evp.h": "c",
+        "compare": "c",
+        "type_traits": "c",
+        "rsa.h": "c",
+        "sodium.h": "c",
+        "stdio.h": "c"
     }
 }

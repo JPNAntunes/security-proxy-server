@@ -18,15 +18,36 @@
 #include <json-c/json.h>
 #include <curl/curl.h>
 #include "isabela_api.c"
+// Hashing Library
 #include "bcrypt.c"
+// Symmetric Encryption
+#include "aes_symmetric.c"
+// Asymmetric Encryption
+#include <sodium.h>
+
+// Global Variables
+/* A 256 bit key */
+unsigned char key[100];
+
+/* A 128 bit IV */
+unsigned char iv[100];// = (unsigned char *)"0123456789012345";
+
+unsigned char ciphertext[128];
+
+/* Buffer for the decrypted text */
+unsigned char decryptedtext[128];
+
+int decryptedtext_len, ciphertext_len;
 
 // Clear Screen
 #define clear() printf("\033[H\033[J")
 // Server running on Port 8000
-#define SERVER_PORT 9000
+#define SERVER_PORT 9001
 #define BUF_SIZE 1024
 
 // Function declaration
+void receive_symmetric_key(int client_fd);
+void receive_symmetric_iv(int client_fd);
 void process_client(int client_fd);
 void check_id(int client_fd);
 const char *get_student_information(int client_fd, int option_flag, const char *user_id);
@@ -68,13 +89,68 @@ int main()
         if (client > 0) {
             if (fork() == 0) {
                 close(fd);
+                printf("Client joined...\n");
+                receive_symmetric_key(client);
+                receive_symmetric_iv(client);
                 check_id(client);
                 exit(0);
             }
         close(client);
         }
     }
-    return 0;  
+    return 0; 
+}
+
+void receive_symmetric_key(int client_fd)
+{    
+    char buffer[BUF_SIZE];
+    int nread;
+    unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
+    unsigned char recipient_sk[crypto_box_SECRETKEYBYTES];
+    crypto_box_keypair(recipient_pk, recipient_sk);
+    write(client_fd, recipient_pk, strlen(recipient_pk));
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    int cipher_len = 2;
+    cipher_len = atoi(buffer);
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    unsigned char cipher[cipher_len];
+    strcpy(cipher, buffer);
+    unsigned char decrypted[32];
+    if (crypto_box_seal_open(decrypted, cipher, cipher_len,
+                            recipient_pk, recipient_sk) != 0) {
+        /* message corrupted or not intended for this recipient */
+    }
+    strcpy(key, decrypted);
+}
+
+void receive_symmetric_iv(int client_fd)
+{    
+    char buffer[BUF_SIZE];
+    int nread;
+    unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
+    unsigned char recipient_sk[crypto_box_SECRETKEYBYTES];
+    crypto_box_keypair(recipient_pk, recipient_sk);
+    write(client_fd, recipient_pk, strlen(recipient_pk));
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    int cipher_len = 2;
+    cipher_len = atoi(buffer);
+    nread = read(client_fd, buffer, BUF_SIZE-1);
+    buffer[nread] = '\0';
+    fflush(stdout);
+    unsigned char cipher[cipher_len];
+    strcpy(cipher, buffer);
+    unsigned char decrypted[32];
+    if (crypto_box_seal_open(decrypted, cipher, cipher_len,
+                            recipient_pk, recipient_sk) != 0) {
+        /* message corrupted or not intended for this recipient */
+    }
+    strcpy(iv, decrypted);
 }
 
 void check_id(int client_fd){
@@ -83,22 +159,32 @@ void check_id(int client_fd){
 */
     int nread = 0;
     char buffer[BUF_SIZE];
+    char send_id[BUF_SIZE];
     // Reads buffer given by client with User's ID
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
+    decryptedtext_len = decrypt(buffer, strlen(buffer), key, iv, decryptedtext);
+    strcpy(buffer, decryptedtext);
     // Gives User's ID to function 
     // Option Flag = 0 (No Data Retrieved)
     const char *user_id = get_student_information(client_fd, 0, buffer);
     // Checks if User's ID is valid
     // If not valid returns to client an information string
-    if(strcmp(user_id, "User not found") == 0){
-        write(client_fd, strcat(buffer, " not found"), strlen(strcat(buffer, " not found")));
+    if(strcmp(user_id, "User not found") == 0)
+    {
+        strcat(buffer, " not found");
+        ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
         check_id(client_fd);
     }
     // If valid returns to client and information string
     else{
-        write(client_fd, strcat(buffer, " was found"), strlen(strcat(buffer, " was found")));
+        strcat(buffer, " was found");
+        ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
         // Receives Option from Client (Either Private or Group Data)
         check_user(client_fd, user_id);
     }    
@@ -153,13 +239,18 @@ const char *get_student_information(int client_fd, int option_flag, const char *
         const char *id = json_object_get_string(jobj_object_id);
         // Temporary solution (Sends data if User's )
         if(option_flag == 0){
-            if(strcmp(id, user_id) == 0){
+            //if(strcmp(id, user_id) == 0){
+            // ciphertext_len = encrypt (id, strlen ((char *)id), key, iv,
+            //                 ciphertext);
+            // decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
+            // strcpy(id, decryptedtext);
+            if(strstr(user_id, id) != NULL){
                 return id;
             } 
         }
         // Option Flag == 1 (Group Data) Sends private data
         if(option_flag == 1){
-            if(strcmp(id, user_id) == 0){
+            if(strstr(user_id, id) != NULL){
                 private_data(client_fd, priv_data, user_id);
             }
         }
@@ -199,12 +290,13 @@ void data(int client_fd, const char *user_id){
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
-    option = atoi(buffer);
-    if(option == 1){
+    decryptedtext_len = decrypt(buffer, strlen(buffer), key, iv, decryptedtext);
+    strcpy(buffer, decryptedtext);
+    if(strstr(buffer, "1") != NULL){
         // Flag = 1 (Private Data)
         get_student_information(client_fd, 1, user_id);
     }
-    if(option == 2){
+    if(strstr(buffer, "2") != NULL){
         // Flag = 2 (Group Data)
         get_student_information(client_fd, 2, user_id);
     }
@@ -220,7 +312,10 @@ void private_data(int client_fd, char priv_data[11][BUF_SIZE], const char *user_
     while(i < 11){
         int nread = 0;
         char buffer[BUF_SIZE];
-        write(client_fd, priv_data[i], strlen(priv_data[i]));
+        ciphertext_len = encrypt (priv_data[i], strlen ((char *)priv_data[i]), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
+        // write(client_fd, priv_data[i], strlen(priv_data[i]));
         while(nread == 0){
             nread = read(client_fd, buffer, BUF_SIZE-1);
         }
@@ -236,7 +331,12 @@ void group_data(int client_fd, char all_data[6][BUF_SIZE], const char *user_id)
     while(i < 6){
         int nread = 0;
         char buffer[BUF_SIZE];
-        write(client_fd, all_data[i], strlen(all_data[i]));
+        unsigned char ciphertext[128];
+        strcpy(buffer, all_data[i]);
+        ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
+        // write(client_fd, all_data[i], strlen(all_data[i]));
         while(nread == 0){
             nread = read(client_fd, buffer, BUF_SIZE-1);
         } 
@@ -309,22 +409,36 @@ void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
     int nread;
     char buffer[BUF_SIZE];
     // Sends login procedure flag to user
-    write(client_fd, "login", strlen("login"));
+    strcpy(buffer, "login");
+    ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+    write(client_fd, ciphertext, ciphertext_len);
+    //write(client_fd, "login", strlen("login"));
     // Reads password sent by user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
+    decryptedtext_len = decrypt(buffer, strlen(buffer), key, iv, decryptedtext);
+    strcpy(buffer, decryptedtext); 
     // Checks if password given for login is the same as the one hashed on the database
     // If it's successful will go to the data routine giving access to the menu
     if( bcrypt_checkpw(buffer, info[1]) == 0 )
     {
-        write(client_fd, "success", strlen("success"));
+        strcpy(buffer, "success");
+        ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
+        //write(client_fd, "success", strlen("success"));
         data(client_fd, user_id);
     }
     // If it's unsuccessful, will return the user to the initial menu
     else
     {
-        write(client_fd, "failed", strlen("failed"));
+        strcpy(buffer, "failed");
+        ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+        write(client_fd, ciphertext, ciphertext_len);
+        //write(client_fd, "failed", strlen("failed"));
         check_id(client_fd);
     }
 }
@@ -337,7 +451,11 @@ void registration(int client_fd, const char *user_id)
     FILE *fp;
     fp = fopen("database.txt", "a");
     // Sends to user that registration is needed
-    write(client_fd, "register", strlen("register"));
+    strcpy(buffer, "register");
+    ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+    write(client_fd, ciphertext, ciphertext_len);
+    //write(client_fd, "register", strlen("register"));
     // Writes the user_id to the database
     strcat(user_id, " ");
     fputs(user_id, fp);
@@ -346,10 +464,16 @@ void registration(int client_fd, const char *user_id)
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
+    decryptedtext_len = decrypt(buffer, strlen(buffer), key, iv, decryptedtext);
+    strcpy(buffer, decryptedtext); 
     // Generates a bcrypt hashed password
     // With salt and 12 rounds
     generate_hash(buffer);
-    write(client_fd, "success", strlen("success"));
+    strcpy(buffer, "success");
+    ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
+                              ciphertext);
+    write(client_fd, ciphertext, ciphertext_len);
+    //write(client_fd, "success", strlen("success"));
     check_id(client_fd);
 }
 
