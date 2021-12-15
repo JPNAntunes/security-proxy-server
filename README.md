@@ -33,9 +33,7 @@ December, 16 - Final delivery of code and report
 ## Solution Implemented
 
 Types of Encryption and Security Measures used:
-    -> Password Hashing with Salt using Bcrypt Algorithm
-    -> Asymmetric Encryption to exchange Symmetric Encryption Key and IV
-       (Generated two Public/Private Key Pairs for each execution)
-    -> Symmetric Encryption of Messages between the Server and the Client
-    -> Cryptographically-Secure Pseudo-Random Number Generator to create
-       new Key/IV Pair for Symmetric Encryption in each execution
+-> Password Hashing with Salt using Bcrypt Algorithm
+-> Asymmetric Encryption to exchange Symmetric Encryption Key and IV (Generated two Public/Private Key Pairs for each execution)
+-> Symmetric Encryption of Messages between the Server and the Client
+-> Cryptographically-Secure Pseudo-Random Number Generator to create new Key/IV Pair for Symmetric Encryption in each execution
