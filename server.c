@@ -3,6 +3,15 @@
     Server Application
     Connection Client/Server with TCP Sockets
 */
+/*
+    Types of Encryption and Security Measures used:
+    -> Password Hashing with Salt using Bcrypt Algorithm
+    -> Asymmetric Encryption to exchange Symmetric Encryption Key and IV
+       (Generated two Public/Private Key Pairs for each execution)
+    -> Symmetric Encryption of Messages between the Server and the Client
+    -> Cryptographically-Secure Pseudo-Random Number Generator to create
+       new Key/IV Pair for Symmetric Encryption in each execution
+*/
 // Credit to Ricardo Garcia for Hashing Library (Bcrypt)
 // Repository link: https://github.com/rg3/libbcrypt
 // To make file: gcc server.c -o server -lcurl -ljson-c crypt_blowfish/*.o    
@@ -25,26 +34,24 @@
 // Asymmetric Encryption
 #include <sodium.h>
 
-// Global Variables
+// ======== Symmetric Encryption ========
 /* A 256 bit key */
-unsigned char key[100];
-
+unsigned char key[32];
 /* A 128 bit IV */
-unsigned char iv[100];// = (unsigned char *)"0123456789012345";
-
+unsigned char iv[16];
 unsigned char ciphertext[128];
-
 /* Buffer for the decrypted text */
 unsigned char decryptedtext[128];
-
 int decryptedtext_len, ciphertext_len;
 
+// ======== Define ========
 // Clear Screen
 #define clear() printf("\033[H\033[J")
-// Server running on Port 8000
+// Server PORT
 #define SERVER_PORT 9001
 #define BUF_SIZE 1024
 
+// ======== Function Declaration ========
 // Function declaration
 void receive_symmetric_key(int client_fd);
 void receive_symmetric_iv(int client_fd);

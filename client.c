@@ -3,6 +3,15 @@
     Client Application
     Connection Client/Server with TCP Sockets
 */
+/*
+    Types of Encryption and Security Measures used:
+    -> Password Hashing with Salt using Bcrypt Algorithm
+    -> Asymmetric Encryption to exchange Symmetric Encryption Key and IV
+       (Generated two Public/Private Key Pairs for each execution)
+    -> Symmetric Encryption of Messages between the Server and the Client
+    -> Cryptographically-Secure Pseudo-Random Number Generator to create
+       new Key/IV Pair for Symmetric Encryption in each execution
+*/
 // To make file: gcc client.c -o client
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -15,22 +24,20 @@
 #include <netdb.h>
 #include <sodium.h>
 #include "aes_symmetric.c"
+#include "CSPRNG/csprng.c"
 
-#include <time.h>
-
+// ======== Symmetric Encryption ========
 /* A 256 bit key */
-unsigned char *key = (unsigned char *)"01234567890123456789012345678901";
-
+unsigned char key[32];
 /* A 128 bit IV */
-unsigned char *iv = (unsigned char *)"0123456789012345";
+unsigned char iv[16];
 
 unsigned char ciphertext[128];
-
 /* Buffer for the decrypted text */
 unsigned char decryptedtext[128];
-
 int decryptedtext_len, ciphertext_len;
 
+// ======== Define ========
 #define BUF_SIZE 1024
 // Clear Screen
 #define clear() printf("\033[H\033[J")
@@ -38,7 +45,8 @@ int decryptedtext_len, ciphertext_len;
 #define SERVER_IP "127.0.0.1"
 // Server PORT
 #define SERVER_PORT 9001
-// Function Declaration
+
+// ======== Function Declaration ========
 void send_symmetric_key(int fd);
 void send_symmetric_iv(int fd);
 void error(char *msg);
@@ -70,8 +78,24 @@ int main(int argc, char *argv[]){
         error("Connect");
     // Clear initial screen
     clear();
+    // Cryptographically-Secure Pseudo-Random Number Generator
+    // Creates a new Key and IV every execution
+    CSPRNG rng = csprng_create();
+    for (int n = 0; n < 32; n++)
+    {
+        char c = ((unsigned)csprng_get_int( rng ) % 95) + 32;
+        key[n] = c;
+    }
+    for (int n = 0; n < 16; n++)
+    {
+        char c = ((unsigned)csprng_get_int( rng ) % 95) + 32;
+        iv[n] = c;
+    }
+    // calls functions that send the symmetric encryption key and IV
+    // Using Asymmetric Encryption
     send_symmetric_key(fd);
     send_symmetric_iv(fd);
+    // Calls main program after Symmetric Encryption Key Trade
     send_user_id(fd);
     close(fd);
     exit(0);
@@ -82,12 +106,12 @@ void send_symmetric_key(int fd)
     char buffer[BUF_SIZE];
     int nread;  
     unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
+    // Receives the public key from the server
     nread = read(fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
     strcpy(recipient_pk, buffer);
-    // unsigned char message[33];
-    // strcpy(message, key);
+    // Sends Symmetric Encryption Key to the Server
 	int message_len = strlen(key) + 1;
     int cipher_len = crypto_box_SEALBYTES + message_len;
     unsigned char cipher[cipher_len];
@@ -103,12 +127,12 @@ void send_symmetric_iv(int fd)
     char buffer[BUF_SIZE];
     int nread;  
     unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
+    // Receives new public key from the server
     nread = read(fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
     strcpy(recipient_pk, buffer);
-    // unsigned char message[33];
-    // strcpy(message, key);
+    // Sends Symmetric Encryption IV to the Server
 	int message_len = strlen(iv) + 1;
     int cipher_len = crypto_box_SEALBYTES + message_len;
     unsigned char cipher[cipher_len];
