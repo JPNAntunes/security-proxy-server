@@ -12,8 +12,20 @@
     -> Cryptographically-Secure Pseudo-Random Number Generator to create
        new Key/IV Pair for Symmetric Encryption in each execution
 */
+//================================= Warning ======================================
+//          This is my take on the situation! 
+//          Bugs happening because of encryption block sizes 
+//          can be fixed assigning manually key and iv both on server
+//          and client. Switching Asymmetric Encryption Library or method
+//          would be best to fix these issues, since they seem to be caused by
+//          libsodium library, bad implementation of the library is possible
+//          but problems seem to be connectoed to the sending of encrypted data
+//          using TCP sockets.
+//=================================================================================
 // Credit to Ricardo Garcia for Hashing Library (Bcrypt)
 // Repository link: https://github.com/rg3/libbcrypt
+// Other Libraries used: Lsodium, OpenSSL, CSPRNG by Duthomhas
+// Repository link for the CSPRNG Library used: https://github.com/Duthomhas/CSPRNG
 // To make file: gcc server.c -o server -lcurl -lsodium -lcrypto -ljson-c crypt_blowfish/*.o    
 #include <sys/socket.h>
 #include <sys/types.h>
