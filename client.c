@@ -152,8 +152,6 @@ void send_symmetric_iv(int fd)
 void send_user_id(int fd){
     char buffer[BUF_SIZE], user_id[50];
     int nread;
-    printf("Key - %s\n", key);
-    printf("IV - %s\n", iv);
     printf("Welcome to ISABELA\nUser ID: ");
     scanf("%s", user_id);
     // Sends give user_id to server

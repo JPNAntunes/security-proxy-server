@@ -97,13 +97,12 @@ int main()
         if (client > 0) {
             if (fork() == 0) {
                 close(fd);
+                // Receives KEY for Symmetric Encryption
                 receive_symmetric_key(client);
+                // Receives IV for Symmetric Encryption
                 receive_symmetric_iv(client);
-                printf("=======================================\n");
                 printf("Client joined...\n");
-                printf("Key - %s\n", key);
-                printf("IV - %s\n", iv);
-                printf("=======================================\n");
+                // Returns to normal execution
                 check_id(client);
                 exit(0);
             }
@@ -119,23 +118,29 @@ void receive_symmetric_key(int client_fd)
     int nread;
     unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
     unsigned char recipient_sk[crypto_box_SECRETKEYBYTES];
+    // Generation of new Public/Private Key Pair
     crypto_box_keypair(recipient_pk, recipient_sk);
+    // Sends to client public key
     write(client_fd, recipient_pk, strlen(recipient_pk));
+    // Receives ciphertext length of encrypted message sent by the user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
-    int cipher_len = 2;
+    int cipher_len;
     cipher_len = atoi(buffer);
+    // Receives ciphertext sent by the user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
     unsigned char cipher[cipher_len];
     strcpy(cipher, buffer);
     unsigned char decrypted[32];
+    // Decrypts message sent
     if (crypto_box_seal_open(decrypted, cipher, cipher_len,
                             recipient_pk, recipient_sk) != 0) {
         /* message corrupted or not intended for this recipient */
     }
+    // Assigns decrypted message value to key
     strcpy(key, decrypted);
 }
 
@@ -145,23 +150,29 @@ void receive_symmetric_iv(int client_fd)
     int nread;
     unsigned char recipient_pk[crypto_box_PUBLICKEYBYTES];
     unsigned char recipient_sk[crypto_box_SECRETKEYBYTES];
+    // Generation of new Public/Private Key Pair
     crypto_box_keypair(recipient_pk, recipient_sk);
+    // Sends to client public key
     write(client_fd, recipient_pk, strlen(recipient_pk));
+    // Receives ciphertext length of encrypted message sent by the user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
-    int cipher_len = 2;
+    int cipher_len;
     cipher_len = atoi(buffer);
+    // Receives ciphertext sent by the user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
     fflush(stdout);
     unsigned char cipher[cipher_len];
     strcpy(cipher, buffer);
     unsigned char decrypted[32];
+    // Decrypts message sent
     if (crypto_box_seal_open(decrypted, cipher, cipher_len,
                             recipient_pk, recipient_sk) != 0) {
         /* message corrupted or not intended for this recipient */
     }
+    // Assigns decrypted message value to iv
     strcpy(iv, decrypted);
 }
 
@@ -324,10 +335,10 @@ void private_data(int client_fd, char priv_data[11][BUF_SIZE], const char *user_
     while(i < 11){
         int nread = 0;
         char buffer[BUF_SIZE];
+        // Sends encrypted data
         ciphertext_len = encrypt (priv_data[i], strlen ((char *)priv_data[i]), key, iv,
                               ciphertext);
         write(client_fd, ciphertext, ciphertext_len);
-        // write(client_fd, priv_data[i], strlen(priv_data[i]));
         while(nread == 0){
             nread = read(client_fd, buffer, BUF_SIZE-1);
         }
@@ -345,10 +356,10 @@ void group_data(int client_fd, char all_data[6][BUF_SIZE], const char *user_id)
         char buffer[BUF_SIZE];
         unsigned char ciphertext[128];
         strcpy(buffer, all_data[i]);
+        // Sends encrypted data
         ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
         write(client_fd, ciphertext, ciphertext_len);
-        // write(client_fd, all_data[i], strlen(all_data[i]));
         while(nread == 0){
             nread = read(client_fd, buffer, BUF_SIZE-1);
         } 
@@ -425,7 +436,6 @@ void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
     ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
     write(client_fd, ciphertext, ciphertext_len);
-    //write(client_fd, "login", strlen("login"));
     // Reads password sent by user
     nread = read(client_fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
@@ -440,7 +450,6 @@ void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
         ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
         write(client_fd, ciphertext, ciphertext_len);
-        //write(client_fd, "success", strlen("success"));
         data(client_fd, user_id);
     }
     // If it's unsuccessful, will return the user to the initial menu
@@ -450,7 +459,6 @@ void login(int client_fd, const char* user_id, char info[2][BUF_SIZE])
         ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
         write(client_fd, ciphertext, ciphertext_len);
-        //write(client_fd, "failed", strlen("failed"));
         check_id(client_fd);
     }
 }
@@ -467,7 +475,6 @@ void registration(int client_fd, const char *user_id)
     ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
     write(client_fd, ciphertext, ciphertext_len);
-    //write(client_fd, "register", strlen("register"));
     // Writes the user_id to the database
     strcat(user_id, " ");
     fputs(user_id, fp);
@@ -485,27 +492,8 @@ void registration(int client_fd, const char *user_id)
     ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
     write(client_fd, ciphertext, ciphertext_len);
-    //write(client_fd, "success", strlen("success"));
     check_id(client_fd);
 }
-
-// void receive_data(int client_fd, char *data)
-// {
-//     int nread;
-//     char buffer[BUF_SIZE];
-
-//     nread = read(client_fd, buffer, BUF_SIZE-1);
-//     buffer[nread] = '\0';
-//     fflush(stdout);
-//     ciphertext_len = atoi(buffer);
-//     nread = read(client_fd, buffer, BUF_SIZE-1);
-//     buffer[nread] = '\0';
-//     fflush(stdout);
-//     strcpy(ciphertext, buffer);
-//     decryptedtext_len = decrypt(buffer, ciphertext_len, key, iv, decryptedtext);
-//     strcpy(data, decryptedtext); 
-// }
-
 // Bcrypt Hashing - Safe way of storing passwords
 // Use of salt in order to not be predictable
 void generate_hash(const char *password)
