@@ -14,7 +14,7 @@
 */
 // Credit to Ricardo Garcia for Hashing Library (Bcrypt)
 // Repository link: https://github.com/rg3/libbcrypt
-// To make file: gcc server.c -o server -lcurl -ljson-c crypt_blowfish/*.o    
+// To make file: gcc server.c -o server -lcurl -lsodium -lcrypto -ljson-c crypt_blowfish/*.o    
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -65,6 +65,7 @@ void send_data_routine(int client_fd, char *data_cell);
 void check_user(int client_fd, const char *user_id);
 void login(int client_fd, const char* user_id, char info[2][BUF_SIZE]);
 void registration(int client_fd, const char *user_id);
+void receive_data(int client_fd, char *data);
 void generate_hash(const char *password);
 // Error Message
 void error(char *msg);
@@ -96,9 +97,13 @@ int main()
         if (client > 0) {
             if (fork() == 0) {
                 close(fd);
-                printf("Client joined...\n");
                 receive_symmetric_key(client);
                 receive_symmetric_iv(client);
+                printf("=======================================\n");
+                printf("Client joined...\n");
+                printf("Key - %s\n", key);
+                printf("IV - %s\n", iv);
+                printf("=======================================\n");
                 check_id(client);
                 exit(0);
             }
@@ -483,6 +488,23 @@ void registration(int client_fd, const char *user_id)
     //write(client_fd, "success", strlen("success"));
     check_id(client_fd);
 }
+
+// void receive_data(int client_fd, char *data)
+// {
+//     int nread;
+//     char buffer[BUF_SIZE];
+
+//     nread = read(client_fd, buffer, BUF_SIZE-1);
+//     buffer[nread] = '\0';
+//     fflush(stdout);
+//     ciphertext_len = atoi(buffer);
+//     nread = read(client_fd, buffer, BUF_SIZE-1);
+//     buffer[nread] = '\0';
+//     fflush(stdout);
+//     strcpy(ciphertext, buffer);
+//     decryptedtext_len = decrypt(buffer, ciphertext_len, key, iv, decryptedtext);
+//     strcpy(data, decryptedtext); 
+// }
 
 // Bcrypt Hashing - Safe way of storing passwords
 // Use of salt in order to not be predictable

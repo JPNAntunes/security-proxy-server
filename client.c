@@ -12,7 +12,7 @@
     -> Cryptographically-Secure Pseudo-Random Number Generator to create
        new Key/IV Pair for Symmetric Encryption in each execution
 */
-// To make file: gcc client.c -o client
+// To make file: gcc client.c -o client -lsodium -lcrypto
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <sys/types.h>
@@ -27,10 +27,13 @@
 #include "CSPRNG/csprng.c"
 
 // ======== Symmetric Encryption ========
-/* A 256 bit key */
+// /* A 256 bit key */
 unsigned char key[32];
-/* A 128 bit IV */
+// /* A 128 bit IV */
 unsigned char iv[16];
+// ======== Symmetric Encryption (Less bugged) ========
+// unsigned char *key = "12345678901234567890123456789012";
+// unsigned char *iv = "1234567890123456";
 
 unsigned char ciphertext[128];
 /* Buffer for the decrypted text */
@@ -56,6 +59,7 @@ void main_menu(int fd);
 void display_data(char data[11][BUF_SIZE], int option_flag);
 int option_menu();
 void return_to_option_menu(int fd);
+void send_data(int fd, char *data);
 
 int main(int argc, char *argv[]){
     char endServer[100], buffer[BUF_SIZE], user_id[50];
@@ -80,6 +84,7 @@ int main(int argc, char *argv[]){
     clear();
     // Cryptographically-Secure Pseudo-Random Number Generator
     // Creates a new Key and IV every execution
+    // =======================================================
     CSPRNG rng = csprng_create();
     for (int n = 0; n < 32; n++)
     {
@@ -91,6 +96,7 @@ int main(int argc, char *argv[]){
         char c = ((unsigned)csprng_get_int( rng ) % 95) + 32;
         iv[n] = c;
     }
+    // =======================================================
     // calls functions that send the symmetric encryption key and IV
     // Using Asymmetric Encryption
     send_symmetric_key(fd);
@@ -146,14 +152,14 @@ void send_symmetric_iv(int fd)
 void send_user_id(int fd){
     char buffer[BUF_SIZE], user_id[50];
     int nread;
-    
+    printf("Key - %s\n", key);
+    printf("IV - %s\n", iv);
     printf("Welcome to ISABELA\nUser ID: ");
     scanf("%s", user_id);
     // Sends give user_id to server
     ciphertext_len = encrypt (user_id, strlen ((char *)user_id), key, iv,
-                              ciphertext);
+                                ciphertext);
     write(fd, ciphertext, ciphertext_len);
-    //write(fd, user_id, strlen(user_id));
     // Reads Server Request
     nread = read(fd, buffer, BUF_SIZE-1);
     buffer[nread] = '\0';
@@ -193,10 +199,10 @@ void authentication_menu(int fd, char *user_id)
         char password[BUF_SIZE];
         printf("Registration\nNew Password: ");
         scanf("%s", password);
+        // Sends user password to the server
         ciphertext_len = encrypt (password, strlen ((char *)password), key, iv,
                                 ciphertext);
         write(fd, ciphertext, ciphertext_len);
-        //write(fd, password, strlen(password));
         nread = read(fd, buffer, BUF_SIZE-1);
         buffer[nread] = '\0';
         fflush(stdout); 
@@ -223,7 +229,6 @@ void authentication_menu(int fd, char *user_id)
         ciphertext_len = encrypt (password, strlen ((char *)password), key, iv,
                                 ciphertext);
         write(fd, ciphertext, ciphertext_len);
-        //write(fd, password, strlen(password));
         // Receives answer from server (either success or failed)
         nread = read(fd, buffer, BUF_SIZE-1);
         buffer[nread] = '\0';
@@ -284,7 +289,6 @@ void main_menu(int fd){
         ciphertext_len = encrypt (buffer, strlen ((char *)buffer), key, iv,
                               ciphertext);
         write(fd, ciphertext, ciphertext_len);
-        //write(fd, "2", strlen("2"));
         // While Cycle to get 11 cells of Private Data
         while(i < 6){
             char buffer[BUF_SIZE];
